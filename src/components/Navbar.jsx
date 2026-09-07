@@ -12,7 +12,7 @@ export default function Navbar() {
 
   return (
     <header className="navbar">
-      <div className="navbar-brand">ReportaYa</div>
+      <div className="navbar-brand">CondoTrack</div>
 
       <div className="navbar-user">
         {user ? (
