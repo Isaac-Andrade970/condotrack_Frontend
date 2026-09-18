@@ -4,7 +4,9 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Navbar from "./components/Navbar";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import Home from "./pages/Home";
+import ReportesPage from "./pages/ReportesPage";
+import ReporteDetailPage from "./pages/ReporteDetailPage";
+import CategoriasPage from "./pages/CategoriasPage";
 import "./App.css";
 
 export default function App() {
@@ -18,15 +20,32 @@ export default function App() {
             <Route path="/register" element={<Register />} />
 
             <Route
-              path="/"
+              path="/reportes"
               element={
                 <ProtectedRoute>
-                  <Home />
+                  <ReportesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reportes/:id"
+              element={
+                <ProtectedRoute>
+                  <ReporteDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/categorias"
+              element={
+                <ProtectedRoute>
+                  <CategoriasPage />
                 </ProtectedRoute>
               }
             />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/" element={<Navigate to="/reportes" replace />} />
+            <Route path="*" element={<Navigate to="/reportes" replace />} />
           </Routes>
         </main>
       </BrowserRouter>
