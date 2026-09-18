@@ -14,6 +14,13 @@ export default function Navbar() {
     <header className="navbar">
       <div className="navbar-brand">CondoTrack</div>
 
+      {user && (
+        <nav className="navbar-links">
+          <Link to="/reportes">Reportes</Link>
+          <Link to="/categorias">Categorías</Link>
+        </nav>
+      )}
+
       <div className="navbar-user">
         {user ? (
           <>
