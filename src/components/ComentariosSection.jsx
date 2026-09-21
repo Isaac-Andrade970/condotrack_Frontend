@@ -7,6 +7,8 @@ function ComentariosSection({ reporteId }) {
   const [cargando, setCargando] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
+  const [editandoId, setEditandoId] = useState(null);
+  const [textoEdicion, setTextoEdicion] = useState("");
 
   const cargarComentarios = async () => {
     try {
@@ -43,6 +45,43 @@ function ComentariosSection({ reporteId }) {
     }
   };
 
+  const iniciarEdicion = (c) => {
+    setEditandoId(c.id);
+    setTextoEdicion(c.contenido);
+  };
+
+  const cancelarEdicion = () => {
+    setEditandoId(null);
+    setTextoEdicion("");
+  };
+
+  const guardarEdicion = async (comentarioId) => {
+    if (!textoEdicion.trim()) return;
+
+    setError(null);
+    try {
+      await api.patch(`/reportes/${reporteId}/comentarios/${comentarioId}`, {
+        contenido: textoEdicion,
+      });
+      cancelarEdicion();
+      await cargarComentarios();
+    } catch (err) {
+      setError("No se pudo editar el comentario");
+    }
+  };
+
+  const eliminarComentario = async (comentarioId) => {
+    if (!window.confirm("¿Eliminar este comentario?")) return;
+
+    setError(null);
+    try {
+      await api.delete(`/reportes/${reporteId}/comentarios/${comentarioId}`);
+      await cargarComentarios();
+    } catch (err) {
+      setError("No se pudo eliminar el comentario");
+    }
+  };
+
   return (
     <div className="comentarios-section">
       <h3>Comentarios</h3>
@@ -55,12 +94,38 @@ function ComentariosSection({ reporteId }) {
         <p>Todavía no hay comentarios.</p>
       ) : (
         <ul className="comentarios-lista">
-          {comentarios.map((c) => (
-            <li key={c.id}>
-              <strong>{c.usuario_id ? `Usuario #${c.usuario_id}` : "Anónimo"}:</strong>{" "}
-              {c.contenido}
-            </li>
-          ))}
+          {comentarios.map((c) =>
+            editandoId === c.id ? (
+              <li key={c.id}>
+                <textarea
+                  value={textoEdicion}
+                  onChange={(e) => setTextoEdicion(e.target.value)}
+                  rows={2}
+                />
+                <div className="comentarios-acciones">
+                  <button type="button" onClick={() => guardarEdicion(c.id)}>
+                    Guardar
+                  </button>
+                  <button type="button" onClick={cancelarEdicion}>
+                    Cancelar
+                  </button>
+                </div>
+              </li>
+            ) : (
+              <li key={c.id}>
+                <strong>{c.usuario_id ? `Usuario #${c.usuario_id}` : "Anónimo"}:</strong>{" "}
+                {c.contenido}
+                <div className="comentarios-acciones">
+                  <button type="button" onClick={() => iniciarEdicion(c)}>
+                    Editar
+                  </button>
+                  <button type="button" onClick={() => eliminarComentario(c.id)}>
+                    Eliminar
+                  </button>
+                </div>
+              </li>
+            )
+          )}
         </ul>
       )}
 
