@@ -15,6 +15,11 @@
 
 .navbar-brand {
   font-weight: 700;
+}
+
+.navbar-links {
+  display: flex;
+  gap: 16px;
   flex: 1;
 }
 
@@ -71,7 +76,61 @@ button[type="button"] {
   color: var(--text);
 }
 
+form.inline-form {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
 .error {
   color: var(--danger);
   font-size: 14px;
+}
+
+.list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.list-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.badge-pendiente {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-en_progreso {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-resuelto {
+  background: #d1fae5;
+  color: #065f46;
 }
