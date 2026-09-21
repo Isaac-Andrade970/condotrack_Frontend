@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "../api/axios";
+import ComentariosSection from "../components/ComentariosSection";
 
 export default function ReporteDetailPage() {
   const { id } = useParams();
@@ -41,11 +42,7 @@ export default function ReporteDetailPage() {
       {reporte.descripcion && <p>{reporte.descripcion}</p>}
       {reporte.torre_unidad && <p>Torre / Unidad: {reporte.torre_unidad}</p>}
 
-      {/*
-        Alexis: aquí va la sección de Comentarios (EP-4).
-        GET/POST  /reportes/:id/comentarios
-        PATCH/DELETE /reportes/:id/comentarios/:id
-      */}
+      <ComentariosSection reporteId={reporte.id} />
     </div>
   );
 }
