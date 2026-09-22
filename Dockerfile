@@ -8,7 +8,7 @@
 #   docker build --build-arg VITE_API_URL=https://apicondotrack.frubilarz.cl -t condotrack-frontend .
 #   docker run -d --name condotrack-frontend -p 127.0.0.1:4200:80 condotrack-frontend
 
-FROM node:22-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
