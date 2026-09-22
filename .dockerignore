@@ -1,0 +1,15 @@
+node_modules
+dist
+dist-ssr
+.git
+.github
+.env
+.env.local
+*.local
+*.log
+.vscode
+.idea
+.DS_Store
+README.md
+Jenkinsfile
+versel.json

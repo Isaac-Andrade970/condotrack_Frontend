@@ -50,7 +50,7 @@ Consumido tal cual desde la API — ver el detalle completo en el README de
 
 ## Requisitos previos
 
-- Node.js (versión LTS)
+- Node.js 22 (LTS)
 - El backend de CondoTrack corriendo (local o la URL de producción)
 
 ## Instalación
@@ -97,8 +97,48 @@ No hay tests automatizados todavía en este repo.
 
 ## Producción
 
-Frontend: aún no desplegado — pendiente (Vercel/Netlify).
-Backend (API): <https://apicondotrack.frubilarz.cl>
+- Frontend: <https://condotrack.frubilarz.cl> (droplet de DigitalOcean, mismo host que el backend)
+- Backend (API): <https://apicondotrack.frubilarz.cl>
+
+## CI/CD (Jenkins)
+
+La CI del repo es Jenkins, con el mismo esquema que `condotrack_Backend` (no hay workflows
+de GitHub Actions). Job: <https://jenkins.frubilarz.cl/job/condotrack-frontend/>
+(Multibranch Pipeline sobre este repo; cada rama y PR obtiene su pipeline a partir del
+`Jenkinsfile`). Para que el estado del build aparezca como *check* en los PRs, el job
+necesita la misma credencial de GitHub que usa el job del backend.
+
+Etapas que corren en **todas las ramas** (dentro de `node:22-alpine`):
+
+1. **Checkout**
+2. **Install deps** - `npm ci`
+3. **Lint** - `npm run lint` (oxlint)
+4. **Build** - `npm run build`
+5. **Build image** - `docker build` (ver `Dockerfile`: build de Vite + nginx sirviendo `dist/`)
+
+Solo en la rama **`production`**:
+
+6. **Deploy** - reemplaza el contenedor `condotrack-frontend`, publicado en `127.0.0.1:4200`
+7. **Health Check** - `curl -f http://127.0.0.1:4200/health`
+
+`VITE_API_URL` se fija en el `Jenkinsfile` (`https://apicondotrack.frubilarz.cl`) y se
+inyecta en el bundle en build-time; no es secreto y no requiere credenciales en Jenkins.
+Para desplegar: mergear `main` en `production` y hacer push.
+
+### Configuración del droplet (una sola vez)
+
+1. **Jenkins**: crear el job `condotrack-frontend` (Multibranch Pipeline) apuntando a
+   `https://github.com/Isaac-Andrade970/condotrack_Frontend`, con la credencial de GitHub
+   y el webhook igual que `condotrack-backend`. Debe existir la red Docker `course-net`
+   (ya la usa el backend) y el puerto `4200` libre en el host.
+2. **nginx del host**: copiar `docker/condotrack.frubilarz.cl.conf` a
+   `/etc/nginx/sites-available/condotrack.frubilarz.cl`, enlazarlo en `sites-enabled`,
+   `nginx -t && systemctl reload nginx`.
+3. **TLS**: `certbot --nginx -d condotrack.frubilarz.cl` (el DNS ya apunta al droplet).
+4. Crear la rama `production` desde `main` y hacer push; Jenkins despliega y el sitio queda
+   en <https://condotrack.frubilarz.cl>.
+
+`versel.json` es un remanente de un intento de deploy en Vercel y no lo usa el pipeline.
 
 ## Credenciales de prueba
 
