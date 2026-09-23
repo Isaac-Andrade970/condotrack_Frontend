@@ -119,7 +119,8 @@ Etapas que corren en **todas las ramas** (dentro de `node:22-alpine`):
 Solo en la rama **`production`**:
 
 6. **Deploy** - reemplaza el contenedor `condotrack-frontend`, publicado en `127.0.0.1:4200`
-7. **Health Check** - `curl -f http://127.0.0.1:4200/health`
+7. **Health Check** - `docker exec condotrack-frontend wget -qO- http://127.0.0.1/health` (Jenkins corre en un
+   contenedor y no alcanza el puerto publicado en el host)
 
 `VITE_API_URL` se fija en el `Jenkinsfile` (`https://apicondotrack.frubilarz.cl`) y se
 inyecta en el bundle en build-time; no es secreto y no requiere credenciales en Jenkins.

@@ -84,9 +84,15 @@ pipeline {
         stage('Health Check') {
             when { branch 'production' }
             steps {
+                // Jenkins corre dentro de un contenedor: su 127.0.0.1 no es el del host, asi que
+                // el puerto publicado ($DEPLOY_PORT) no es alcanzable desde aqui. Se consulta el
+                // health check desde dentro del contenedor (nginx escucha en :80; wget es de busybox).
                 sh '''
                     for i in $(seq 1 20); do
-                      if curl -fsS "http://127.0.0.1:$DEPLOY_PORT/health"; then echo; exit 0; fi
+                      if docker exec "$APP_NAME" wget -qO- http://127.0.0.1/health; then exit 0; fi
+                      if [ "$(docker inspect -f '{{.State.Running}}' "$APP_NAME" 2>/dev/null)" != "true" ]; then
+                        echo "El contenedor $APP_NAME no esta corriendo"; docker logs --tail 50 "$APP_NAME"; exit 1
+                      fi
                       sleep 3
                     done
                     docker logs --tail 50 "$APP_NAME"; exit 1
