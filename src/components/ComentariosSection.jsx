@@ -113,7 +113,9 @@ function ComentariosSection({ reporteId }) {
               </li>
             ) : (
               <li key={c.id}>
-                <strong>{c.usuario_id ? `Usuario #${c.usuario_id}` : "Anónimo"}:</strong>{" "}
+                <strong>
+                  {c.usuario_nombre || (c.usuario_id ? `Usuario #${c.usuario_id}` : "Anónimo")}:
+                </strong>{" "}
                 {c.contenido}
                 <div className="comentarios-acciones">
                   <button type="button" onClick={() => iniciarEdicion(c)}>
