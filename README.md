@@ -139,7 +139,10 @@ Para desplegar: mergear `main` en `production` y hacer push.
 4. Crear la rama `production` desde `main` y hacer push; Jenkins despliega y el sitio queda
    en <https://condotrack.frubilarz.cl>.
 
-`versel.json` es un remanente de un intento de deploy en Vercel y no lo usa el pipeline.
+`vercel.json` lo usa solo Vercel (el despliegue de prueba del equipo, <https://condotrackfrontend.vercel.app>):
+redirige todas las rutas a `index.html` para que recargar o abrir directo `/reportes` no dé 404. Antes se
+llamaba `versel.json` (con "s"), Vercel no lo leía y esas rutas fallaban. El pipeline de Jenkins no lo usa;
+nginx ya hace lo mismo en `docker/nginx.conf`.
 
 ## Credenciales de prueba
 
