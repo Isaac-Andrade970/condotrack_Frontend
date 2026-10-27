@@ -7,6 +7,7 @@ export default function CategoriasPage() {
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
@@ -64,11 +65,14 @@ export default function CategoriasPage() {
   async function handleDelete(id) {
     if (!window.confirm("¿Eliminar esta categoría?")) return;
 
+    setDeleteError("");
     try {
       await api.delete(`/categorias/${id}`);
       setCategorias((prev) => prev.filter((c) => c.id !== id));
-    } catch {
-      setError("No se pudo eliminar la categoría.");
+    } catch (err) {
+      // Con reportes asociados la API responde 409 con su propio mensaje.
+      const apiErrors = err.response?.data?.errors;
+      setDeleteError(apiErrors ? apiErrors.join(", ") : "No se pudo eliminar la categoría.");
     }
   }
 
@@ -101,6 +105,7 @@ export default function CategoriasPage() {
       {formError && <p className="error">{formError}</p>}
       {loading && <p>Cargando...</p>}
       {error && <p className="error">{error}</p>}
+      {deleteError && <p className="error">{deleteError}</p>}
 
       {!loading && !error && (
         <ul className="list">
