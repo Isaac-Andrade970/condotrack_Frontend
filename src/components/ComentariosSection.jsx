@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 function ComentariosSection({ reporteId }) {
   const [comentarios, setComentarios] = useState([]);
@@ -9,6 +10,12 @@ function ComentariosSection({ reporteId }) {
   const [error, setError] = useState(null);
   const [editandoId, setEditandoId] = useState(null);
   const [textoEdicion, setTextoEdicion] = useState("");
+  const { user } = useAuth();
+
+  const mensajeDeError = (err, porDefecto) =>
+    err.response?.status === 403
+      ? err.response.data?.error || "No tienes permiso para esta acción"
+      : porDefecto;
 
   const cargarComentarios = async () => {
     try {
@@ -66,7 +73,7 @@ function ComentariosSection({ reporteId }) {
       cancelarEdicion();
       await cargarComentarios();
     } catch (err) {
-      setError("No se pudo editar el comentario");
+      setError(mensajeDeError(err, "No se pudo editar el comentario"));
     }
   };
 
@@ -78,7 +85,7 @@ function ComentariosSection({ reporteId }) {
       await api.delete(`/reportes/${reporteId}/comentarios/${comentarioId}`);
       await cargarComentarios();
     } catch (err) {
-      setError("No se pudo eliminar el comentario");
+      setError(mensajeDeError(err, "No se pudo eliminar el comentario"));
     }
   };
 
@@ -117,14 +124,16 @@ function ComentariosSection({ reporteId }) {
                   {c.usuario_nombre || (c.usuario_id ? `Usuario #${c.usuario_id}` : "Anónimo")}:
                 </strong>{" "}
                 {c.contenido}
-                <div className="comentarios-acciones">
-                  <button type="button" onClick={() => iniciarEdicion(c)}>
-                    Editar
-                  </button>
-                  <button type="button" onClick={() => eliminarComentario(c.id)}>
-                    Eliminar
-                  </button>
-                </div>
+                {c.usuario_id === user?.id && (
+                  <div className="comentarios-acciones">
+                    <button type="button" onClick={() => iniciarEdicion(c)}>
+                      Editar
+                    </button>
+                    <button type="button" onClick={() => eliminarComentario(c.id)}>
+                      Eliminar
+                    </button>
+                  </div>
+                )}
               </li>
             )
           )}
