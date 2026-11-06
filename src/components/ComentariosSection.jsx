@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import { mensajeDeApi } from "../utils/errores";
 
 function ComentariosSection({ reporteId }) {
   const [comentarios, setComentarios] = useState([]);
@@ -11,11 +12,6 @@ function ComentariosSection({ reporteId }) {
   const [editandoId, setEditandoId] = useState(null);
   const [textoEdicion, setTextoEdicion] = useState("");
   const { user } = useAuth();
-
-  const mensajeDeError = (err, porDefecto) =>
-    err.response?.status === 403
-      ? err.response.data?.error || "No tienes permiso para esta acción"
-      : porDefecto;
 
   const cargarComentarios = async () => {
     try {
@@ -46,7 +42,7 @@ function ComentariosSection({ reporteId }) {
       setNuevoComentario("");
       await cargarComentarios();
     } catch (err) {
-      setError("No se pudo guardar el comentario");
+      setError(mensajeDeApi(err, "No se pudo guardar el comentario"));
     } finally {
       setEnviando(false);
     }
@@ -73,7 +69,7 @@ function ComentariosSection({ reporteId }) {
       cancelarEdicion();
       await cargarComentarios();
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo editar el comentario"));
+      setError(mensajeDeApi(err, "No se pudo editar el comentario"));
     }
   };
 
@@ -85,7 +81,7 @@ function ComentariosSection({ reporteId }) {
       await api.delete(`/reportes/${reporteId}/comentarios/${comentarioId}`);
       await cargarComentarios();
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo eliminar el comentario"));
+      setError(mensajeDeApi(err, "No se pudo eliminar el comentario"));
     }
   };
 

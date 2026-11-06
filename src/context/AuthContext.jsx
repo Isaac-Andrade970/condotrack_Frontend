@@ -15,6 +15,19 @@ export function AuthProvider({ children }) {
     }
 
     setLoading(false);
+
+    // Las sesiones guardadas antes de que existieran los roles no traen `rol`.
+    // /me devuelve al usuario actual con su rol, así que se refresca al cargar.
+    // Si el token no sirve, el interceptor de axios cierra la sesión.
+    if (localStorage.getItem("token")) {
+      api
+        .get("/me")
+        .then(({ data }) => {
+          localStorage.setItem("user", JSON.stringify(data));
+          setUser(data);
+        })
+        .catch(() => {});
+    }
   }, []);
 
   function persistSession(token, user) {
@@ -39,8 +52,10 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  const isAdmin = user?.rol === "administrador";
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, isAdmin, loading, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );

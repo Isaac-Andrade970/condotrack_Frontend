@@ -1,0 +1,392 @@
+diff --git a/README.md b/README.md
+index 4e8c82c..be88b29 100644
+--- a/README.md
++++ b/README.md
+@@ -11,8 +11,8 @@ luminarias, ruidos molestos, áreas comunes dañadas) por canales informales —
+ conversaciones con el conserje, un cuaderno físico — sin trazabilidad ni métricas.
+ CondoTrack les da una plataforma única donde reportar, hacer seguimiento del estado en
+ tiempo real, y a conserjería/administración gestionar los casos desde un panel
+-centralizado. En esta etapa (Tarea 1) no hay roles diferenciados: cualquier usuario
+-autenticado puede operar los 3 recursos.
++centralizado. Hay dos roles, `residente` y `administrador`, con permisos distintos
++(ver [Permisos por rol](#permisos-por-rol)).
+ 
+ ## Arquitectura
+ 
+@@ -152,6 +152,34 @@ registro es abierto (no requiere aprobación).
+ ## Funcionalidades
+ 
+ - Registro e inicio de sesión (JWT)
+-- CRUD de Categorías
++- Roles `residente` y `administrador`: la interfaz muestra u oculta acciones según el rol
++- Categorías: listado para todos; crear, editar y eliminar solo para administradores
+ - CRUD de Reportes, con selector de categoría y estado (pendiente / en_progreso / resuelto)
++- Cambio de estado de reportes ajenos para administradores
+ - Comentarios por reporte
++- Mensajes claros cuando la API responde `403` (sin permiso)
++
++## Permisos por rol
++
++La tabla describe lo que ve y puede hacer cada rol en la web. Coincide con las reglas de la
++API (ver el [README del backend](https://github.com/Isaac-Andrade970/condotrack_Backend#permisos-por-rol)).
++
++| Acción | Sin sesión | Residente | Administrador |
++|---|---|---|---|
++| Registrarse / iniciar sesión | Sí | — | — |
++| Ver reportes, categorías y comentarios | Redirige a `/login` | Sí | Sí |
++| Crear reporte y comentario | Redirige a `/login` | Sí | Sí |
++| Editar o eliminar **su** reporte / comentario | Redirige a `/login` | Sí | Sí |
++| Editar o eliminar reporte / comentario **ajeno** | Redirige a `/login` | No (botones ocultos) | No (botones ocultos) |
++| Cambiar el **estado** de un reporte ajeno | Redirige a `/login` | No (sin selector) | Sí (selector en la lista) |
++| Crear, editar o eliminar categorías | Redirige a `/login` | No (formulario y botones ocultos) | Sí |
++
++Notas:
++
++- El rol viene en `user.rol` (`login`, `signup` y `/me`). `AuthContext` lo expone como `user.rol` y
++  como `isAdmin`, y vuelve a consultar `/me` al cargar la app para que una sesión antigua reciba su rol.
++- Ocultar botones es solo experiencia de usuario: la autorización real la hace la API. Si una acción
++  no permitida llega igual a la API, responde `403` y la web muestra el mensaje que viene en el
++  campo `error` del JSON (por ejemplo, «Esta acción es solo para administradores»).
++- Un administrador cambia el estado de un reporte ajeno enviando solo `estado`. La API no le permite
++  editar el contenido de ese reporte, eliminarlo ni tocar comentarios ajenos.
+diff --git a/src/components/ComentariosSection.jsx b/src/components/ComentariosSection.jsx
+index 9408fd8..7aa1c8b 100644
+--- a/src/components/ComentariosSection.jsx
++++ b/src/components/ComentariosSection.jsx
+@@ -1,6 +1,7 @@
+ import { useEffect, useState } from "react";
+ import api from "../api/axios";
+ import { useAuth } from "../context/AuthContext";
++import { mensajeDeApi } from "../utils/errores";
+ 
+ function ComentariosSection({ reporteId }) {
+   const [comentarios, setComentarios] = useState([]);
+@@ -12,11 +13,6 @@ function ComentariosSection({ reporteId }) {
+   const [textoEdicion, setTextoEdicion] = useState("");
+   const { user } = useAuth();
+ 
+-  const mensajeDeError = (err, porDefecto) =>
+-    err.response?.status === 403
+-      ? err.response.data?.error || "No tienes permiso para esta acción"
+-      : porDefecto;
+-
+   const cargarComentarios = async () => {
+     try {
+       const { data } = await api.get(`/reportes/${reporteId}/comentarios`);
+@@ -46,7 +42,7 @@ function ComentariosSection({ reporteId }) {
+       setNuevoComentario("");
+       await cargarComentarios();
+     } catch (err) {
+-      setError("No se pudo guardar el comentario");
++      setError(mensajeDeApi(err, "No se pudo guardar el comentario"));
+     } finally {
+       setEnviando(false);
+     }
+@@ -73,7 +69,7 @@ function ComentariosSection({ reporteId }) {
+       cancelarEdicion();
+       await cargarComentarios();
+     } catch (err) {
+-      setError(mensajeDeError(err, "No se pudo editar el comentario"));
++      setError(mensajeDeApi(err, "No se pudo editar el comentario"));
+     }
+   };
+ 
+@@ -85,7 +81,7 @@ function ComentariosSection({ reporteId }) {
+       await api.delete(`/reportes/${reporteId}/comentarios/${comentarioId}`);
+       await cargarComentarios();
+     } catch (err) {
+-      setError(mensajeDeError(err, "No se pudo eliminar el comentario"));
++      setError(mensajeDeApi(err, "No se pudo eliminar el comentario"));
+     }
+   };
+ 
+diff --git a/src/components/Navbar.jsx b/src/components/Navbar.jsx
+index 33e149b..b4970ce 100644
+--- a/src/components/Navbar.jsx
++++ b/src/components/Navbar.jsx
+@@ -24,7 +24,10 @@ export default function Navbar() {
+       <div className="navbar-user">
+         {user ? (
+           <>
+-            <span>{user.nombre}</span>
++            <span>
++              {user.nombre}
++              {user.rol && ` (${user.rol})`}
++            </span>
+             <button type="button" onClick={handleLogout}>
+               Cerrar sesión
+             </button>
+diff --git a/src/context/AuthContext.jsx b/src/context/AuthContext.jsx
+index 83a2ee2..f4f859d 100644
+--- a/src/context/AuthContext.jsx
++++ b/src/context/AuthContext.jsx
+@@ -15,6 +15,19 @@ export function AuthProvider({ children }) {
+     }
+ 
+     setLoading(false);
++
++    // Las sesiones guardadas antes de que existieran los roles no traen `rol`.
++    // /me devuelve al usuario actual con su rol, así que se refresca al cargar.
++    // Si el token no sirve, el interceptor de axios cierra la sesión.
++    if (localStorage.getItem("token")) {
++      api
++        .get("/me")
++        .then(({ data }) => {
++          localStorage.setItem("user", JSON.stringify(data));
++          setUser(data);
++        })
++        .catch(() => {});
++    }
+   }, []);
+ 
+   function persistSession(token, user) {
+@@ -39,8 +52,10 @@ export function AuthProvider({ children }) {
+     setUser(null);
+   }
+ 
++  const isAdmin = user?.rol === "administrador";
++
+   return (
+-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
++    <AuthContext.Provider value={{ user, isAdmin, loading, login, signup, logout }}>
+       {children}
+     </AuthContext.Provider>
+   );
+diff --git a/src/pages/CategoriasPage.jsx b/src/pages/CategoriasPage.jsx
+index 49e5c96..165889f 100644
+--- a/src/pages/CategoriasPage.jsx
++++ b/src/pages/CategoriasPage.jsx
+@@ -1,9 +1,12 @@
+ import { useEffect, useState } from "react";
+ import api from "../api/axios";
++import { useAuth } from "../context/AuthContext";
++import { mensajeDeApi } from "../utils/errores";
+ 
+ const emptyForm = { nombre: "", descripcion: "" };
+ 
+ export default function CategoriasPage() {
++  const { isAdmin } = useAuth();
+   const [categorias, setCategorias] = useState([]);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState("");
+@@ -57,8 +60,7 @@ export default function CategoriasPage() {
+ 
+       cancelEdit();
+     } catch (err) {
+-      const apiErrors = err.response?.data?.errors;
+-      setFormError(apiErrors ? apiErrors.join(", ") : "No se pudo guardar la categoría.");
++      setFormError(mensajeDeApi(err, "No se pudo guardar la categoría."));
+     }
+   }
+ 
+@@ -71,8 +73,7 @@ export default function CategoriasPage() {
+       setCategorias((prev) => prev.filter((c) => c.id !== id));
+     } catch (err) {
+       // Con reportes asociados la API responde 409 con su propio mensaje.
+-      const apiErrors = err.response?.data?.errors;
+-      setDeleteError(apiErrors ? apiErrors.join(", ") : "No se pudo eliminar la categoría.");
++      setDeleteError(mensajeDeApi(err, "No se pudo eliminar la categoría."));
+     }
+   }
+ 
+@@ -80,27 +81,31 @@ export default function CategoriasPage() {
+     <div>
+       <h1>Categorías</h1>
+ 
+-      <form onSubmit={handleSubmit} className="inline-form">
+-        <input
+-          type="text"
+-          placeholder="Nombre"
+-          value={form.nombre}
+-          onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+-          required
+-        />
+-        <input
+-          type="text"
+-          placeholder="Descripción"
+-          value={form.descripcion}
+-          onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+-        />
+-        <button type="submit">{editingId ? "Guardar" : "Crear"}</button>
+-        {editingId && (
+-          <button type="button" onClick={cancelEdit}>
+-            Cancelar
+-          </button>
+-        )}
+-      </form>
++      {isAdmin ? (
++        <form onSubmit={handleSubmit} className="inline-form">
++          <input
++            type="text"
++            placeholder="Nombre"
++            value={form.nombre}
++            onChange={(e) => setForm({ ...form, nombre: e.target.value })}
++            required
++          />
++          <input
++            type="text"
++            placeholder="Descripción"
++            value={form.descripcion}
++            onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
++          />
++          <button type="submit">{editingId ? "Guardar" : "Crear"}</button>
++          {editingId && (
++            <button type="button" onClick={cancelEdit}>
++              Cancelar
++            </button>
++          )}
++        </form>
++      ) : (
++        <p>Solo los administradores pueden crear, editar o eliminar categorías.</p>
++      )}
+ 
+       {formError && <p className="error">{formError}</p>}
+       {loading && <p>Cargando...</p>}
+@@ -113,14 +118,16 @@ export default function CategoriasPage() {
+             <li key={categoria.id}>
+               <strong>{categoria.nombre}</strong>
+               {categoria.descripcion && <span> — {categoria.descripcion}</span>}
+-              <div className="list-actions">
+-                <button type="button" onClick={() => startEdit(categoria)}>
+-                  Editar
+-                </button>
+-                <button type="button" onClick={() => handleDelete(categoria.id)}>
+-                  Eliminar
+-                </button>
+-              </div>
++              {isAdmin && (
++                <div className="list-actions">
++                  <button type="button" onClick={() => startEdit(categoria)}>
++                    Editar
++                  </button>
++                  <button type="button" onClick={() => handleDelete(categoria.id)}>
++                    Eliminar
++                  </button>
++                </div>
++              )}
+             </li>
+           ))}
+           {categorias.length === 0 && <p>No hay categorías todavía.</p>}
+diff --git a/src/pages/ReportesPage.jsx b/src/pages/ReportesPage.jsx
+index 2b4e7b3..bbae347 100644
+--- a/src/pages/ReportesPage.jsx
++++ b/src/pages/ReportesPage.jsx
+@@ -2,25 +2,19 @@ import { useEffect, useState } from "react";
+ import { Link } from "react-router-dom";
+ import api from "../api/axios";
+ import { useAuth } from "../context/AuthContext";
++import { mensajeDeApi } from "../utils/errores";
+ 
+ const emptyForm = { titulo: "", descripcion: "", torre_unidad: "", categoria_id: "" };
+ const ESTADOS = ["pendiente", "en_progreso", "resuelto"];
+ 
+-// Si la API responde 403 muestra su mensaje; si no, el mensaje por defecto.
+-function mensajeDeApi(err, porDefecto) {
+-  if (err.response?.status === 403) {
+-    return err.response.data?.error || "No tienes permiso para esta acción.";
+-  }
+-  return porDefecto;
+-}
+-
+ export default function ReportesPage() {
+   const [reportes, setReportes] = useState([]);
+   const [categorias, setCategorias] = useState([]);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState("");
+   const [deleteError, setDeleteError] = useState("");
+-  const { user } = useAuth();
++  const [estadoError, setEstadoError] = useState("");
++  const { user, isAdmin } = useAuth();
+ 
+   const [form, setForm] = useState(emptyForm);
+   const [editingId, setEditingId] = useState(null);
+@@ -80,10 +74,20 @@ export default function ReportesPage() {
+ 
+       cancelEdit();
+     } catch (err) {
+-      const apiErrors = err.response?.data?.errors;
+-      setFormError(
+-        apiErrors ? apiErrors.join(", ") : mensajeDeApi(err, "No se pudo guardar el reporte."),
+-      );
++      setFormError(mensajeDeApi(err, "No se pudo guardar el reporte."));
++    }
++  }
++
++  // Un administrador solo puede cambiar el estado de un reporte ajeno: el PATCH
++  // lleva únicamente `estado` (si trajera titulo, descripcion, etc. la API da 403).
++  async function handleCambiarEstado(id, estado) {
++    setEstadoError("");
++
++    try {
++      const { data } = await api.patch(`/reportes/${id}`, { estado });
++      setReportes((prev) => prev.map((r) => (r.id === id ? data : r)));
++    } catch (err) {
++      setEstadoError(mensajeDeApi(err, "No se pudo cambiar el estado del reporte."));
+     }
+   }
+ 
+@@ -167,6 +171,7 @@ export default function ReportesPage() {
+       {loading && <p>Cargando...</p>}
+       {error && <p className="error">{error}</p>}
+       {deleteError && <p className="error">{deleteError}</p>}
++      {estadoError && <p className="error">{estadoError}</p>}
+ 
+       {!loading && !error && (
+         <ul className="list">
+@@ -182,7 +187,7 @@ export default function ReportesPage() {
+                   {reporte.torre_unidad && ` · ${reporte.torre_unidad}`}
+                 </div>
+               </div>
+-              {reporte.usuario_id === user?.id && (
++              {reporte.usuario_id === user?.id ? (
+                 <div className="list-actions">
+                   <button type="button" onClick={() => startEdit(reporte)}>
+                     Editar
+@@ -191,6 +196,22 @@ export default function ReportesPage() {
+                     Eliminar
+                   </button>
+                 </div>
++              ) : (
++                isAdmin && (
++                  <div className="list-actions">
++                    <select
++                      aria-label="Cambiar estado del reporte"
++                      value={reporte.estado}
++                      onChange={(e) => handleCambiarEstado(reporte.id, e.target.value)}
++                    >
++                      {ESTADOS.map((estado) => (
++                        <option key={estado} value={estado}>
++                          {estado}
++                        </option>
++                      ))}
++                    </select>
++                  </div>
++                )
+               )}
+             </li>
+           ))}
+diff --git a/src/utils/errores.js b/src/utils/errores.js
+new file mode 100644
+index 0000000..bbdab1f
+--- /dev/null
++++ b/src/utils/errores.js
+@@ -0,0 +1,19 @@
++// Mensaje que se muestra cuando una llamada a la API falla.
++//
++// - 403: la API explica el motivo en el campo "error" (por ejemplo "Esta acción es
++//   solo para administradores"); si no viene, se usa un mensaje genérico.
++// - 409 / 422: la API manda una lista en "errors"; se une en una sola línea.
++// - Cualquier otro caso: el mensaje por defecto que recibe cada pantalla.
++export function mensajeDeApi(err, porDefecto) {
++  const data = err.response?.data;
++
++  if (err.response?.status === 403) {
++    return data?.error || "No tienes permiso para esta acción.";
++  }
++
++  if (Array.isArray(data?.errors) && data.errors.length > 0) {
++    return data.errors.join(", ");
++  }
++
++  return porDefecto;
++}

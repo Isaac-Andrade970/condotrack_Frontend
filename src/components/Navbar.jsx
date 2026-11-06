@@ -24,7 +24,10 @@ export default function Navbar() {
       <div className="navbar-user">
         {user ? (
           <>
-            <span>{user.nombre}</span>
+            <span>
+              {user.nombre}
+              {user.rol && ` (${user.rol})`}
+            </span>
             <button type="button" onClick={handleLogout}>
               Cerrar sesión
             </button>
