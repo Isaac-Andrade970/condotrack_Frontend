@@ -1,10 +1,10 @@
 import { repartirErroresDeApi } from './errores';
-import { Categoria, DatosReporte, ErroresCampos, Reporte } from './tipos';
+import { Categoria, DatosReporte, ErroresCampos, Estado, Reporte } from './tipos';
 
 // Contrato mínimo con el cliente HTTP de la app. Devuelve siempre la respuesta
 // (sea 2xx o no) y solo rechaza la promesa cuando no hubo conexión. Así este
 // servicio no depende de cómo la app guarda el token ni de dónde sale la URL.
-export type HttpMetodo = 'GET' | 'POST' | 'PATCH';
+export type HttpMetodo = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 export type HttpRespuesta = { status: number; data: unknown };
 export interface Http {
   request(metodo: HttpMetodo, ruta: string, cuerpo?: unknown): Promise<HttpRespuesta>;
@@ -24,6 +24,11 @@ export type ReportesService = {
   listarCategorias(): Promise<Resultado<Categoria[]>>;
   crear(datos: DatosReporte): Promise<Resultado<Reporte>>;
   actualizar(id: number, datos: DatosReporte): Promise<Resultado<Reporte>>;
+  listar(): Promise<Resultado<Reporte[]>>;
+  obtener(id: number): Promise<Resultado<Reporte>>;
+  // Para un administrador sobre un reporte ajeno: el PATCH lleva solo `estado`.
+  cambiarEstado(id: number, estado: Estado): Promise<Resultado<Reporte>>;
+  eliminar(id: number): Promise<Resultado<null>>;
 };
 
 function textos(valor: unknown): string[] {
@@ -90,6 +95,12 @@ function cuerpoDe(datos: DatosReporte, incluirEstado: boolean) {
   return incluirEstado ? { ...cuerpo, estado: datos.estado } : cuerpo;
 }
 
+// DELETE responde 204 sin cuerpo: solo importa si salió bien.
+async function sinCuerpo(promesa: Promise<Resultado<unknown>>): Promise<Resultado<null>> {
+  const resultado = await promesa;
+  return resultado.ok ? { ok: true, data: null } : resultado;
+}
+
 export function crearReportesService(http: Http): ReportesService {
   return {
     listarCategorias: () => pedir<Categoria[]>(http, 'GET', '/categorias'),
@@ -97,5 +108,11 @@ export function crearReportesService(http: Http): ReportesService {
     crear: datos => pedir<Reporte>(http, 'POST', '/reportes', cuerpoDe(datos, false)),
     actualizar: (id, datos) =>
       pedir<Reporte>(http, 'PATCH', `/reportes/${id}`, cuerpoDe(datos, true)),
+    listar: () => pedir<Reporte[]>(http, 'GET', '/reportes'),
+    obtener: id => pedir<Reporte>(http, 'GET', `/reportes/${id}`),
+    // Solo `estado`: si el PATCH de un administrador trae cualquier otro campo, la API responde 403.
+    cambiarEstado: (id, estado) =>
+      pedir<Reporte>(http, 'PATCH', `/reportes/${id}`, { estado }),
+    eliminar: id => sinCuerpo(pedir<unknown>(http, 'DELETE', `/reportes/${id}`)),
   };
 }

@@ -33,6 +33,10 @@ function crearService(sobrescribir: Partial<ReportesService> = {}): ReportesServ
     listarCategorias: jest.fn(async () => ({ ok: true as const, data: categorias })),
     crear: jest.fn(async () => ({ ok: true as const, data: reporteGuardado })),
     actualizar: jest.fn(async () => ({ ok: true as const, data: reporteGuardado })),
+    listar: jest.fn(async () => ({ ok: true as const, data: [reporteGuardado] })),
+    obtener: jest.fn(async () => ({ ok: true as const, data: reporteGuardado })),
+    cambiarEstado: jest.fn(async () => ({ ok: true as const, data: reporteGuardado })),
+    eliminar: jest.fn(async () => ({ ok: true as const, data: null })),
     ...sobrescribir,
   };
 }
