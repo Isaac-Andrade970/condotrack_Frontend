@@ -11,8 +11,8 @@ luminarias, ruidos molestos, áreas comunes dañadas) por canales informales —
 conversaciones con el conserje, un cuaderno físico — sin trazabilidad ni métricas.
 CondoTrack les da una plataforma única donde reportar, hacer seguimiento del estado en
 tiempo real, y a conserjería/administración gestionar los casos desde un panel
-centralizado. En esta etapa (Tarea 1) no hay roles diferenciados: cualquier usuario
-autenticado puede operar los 3 recursos.
+centralizado. Hay dos roles, `residente` y `administrador`, con permisos distintos
+(ver [Permisos por rol](#permisos-por-rol)).
 
 ## Arquitectura
 
@@ -152,6 +152,34 @@ registro es abierto (no requiere aprobación).
 ## Funcionalidades
 
 - Registro e inicio de sesión (JWT)
-- CRUD de Categorías
+- Roles `residente` y `administrador`: la interfaz muestra u oculta acciones según el rol
+- Categorías: listado para todos; crear, editar y eliminar solo para administradores
 - CRUD de Reportes, con selector de categoría y estado (pendiente / en_progreso / resuelto)
+- Cambio de estado de reportes ajenos para administradores
 - Comentarios por reporte
+- Mensajes claros cuando la API responde `403` (sin permiso)
+
+## Permisos por rol
+
+La tabla describe lo que ve y puede hacer cada rol en la web. Coincide con las reglas de la
+API (ver el [README del backend](https://github.com/Isaac-Andrade970/condotrack_Backend#permisos-por-rol)).
+
+| Acción | Sin sesión | Residente | Administrador |
+|---|---|---|---|
+| Registrarse / iniciar sesión | Sí | — | — |
+| Ver reportes, categorías y comentarios | Redirige a `/login` | Sí | Sí |
+| Crear reporte y comentario | Redirige a `/login` | Sí | Sí |
+| Editar o eliminar **su** reporte / comentario | Redirige a `/login` | Sí | Sí |
+| Editar o eliminar reporte / comentario **ajeno** | Redirige a `/login` | No (botones ocultos) | No (botones ocultos) |
+| Cambiar el **estado** de un reporte ajeno | Redirige a `/login` | No (sin selector) | Sí (selector en la lista) |
+| Crear, editar o eliminar categorías | Redirige a `/login` | No (formulario y botones ocultos) | Sí |
+
+Notas:
+
+- El rol viene en `user.rol` (`login`, `signup` y `/me`). `AuthContext` lo expone como `user.rol` y
+  como `isAdmin`, y vuelve a consultar `/me` al cargar la app para que una sesión antigua reciba su rol.
+- Ocultar botones es solo experiencia de usuario: la autorización real la hace la API. Si una acción
+  no permitida llega igual a la API, responde `403` y la web muestra el mensaje que viene en el
+  campo `error` del JSON (por ejemplo, «Esta acción es solo para administradores»).
+- Un administrador cambia el estado de un reporte ajeno enviando solo `estado`. La API no le permite
+  editar el contenido de ese reporte, eliminarlo ni tocar comentarios ajenos.

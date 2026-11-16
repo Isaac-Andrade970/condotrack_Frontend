@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
+import { mensajeDeApi } from "../utils/errores";
 
 const emptyForm = { nombre: "", descripcion: "" };
 
 export default function CategoriasPage() {
+  const { isAdmin } = useAuth();
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -57,8 +60,7 @@ export default function CategoriasPage() {
 
       cancelEdit();
     } catch (err) {
-      const apiErrors = err.response?.data?.errors;
-      setFormError(apiErrors ? apiErrors.join(", ") : "No se pudo guardar la categoría.");
+      setFormError(mensajeDeApi(err, "No se pudo guardar la categoría."));
     }
   }
 
@@ -71,8 +73,7 @@ export default function CategoriasPage() {
       setCategorias((prev) => prev.filter((c) => c.id !== id));
     } catch (err) {
       // Con reportes asociados la API responde 409 con su propio mensaje.
-      const apiErrors = err.response?.data?.errors;
-      setDeleteError(apiErrors ? apiErrors.join(", ") : "No se pudo eliminar la categoría.");
+      setDeleteError(mensajeDeApi(err, "No se pudo eliminar la categoría."));
     }
   }
 
@@ -80,27 +81,31 @@ export default function CategoriasPage() {
     <div>
       <h1>Categorías</h1>
 
-      <form onSubmit={handleSubmit} className="inline-form">
-        <input
-          type="text"
-          placeholder="Nombre"
-          value={form.nombre}
-          onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-          required
-        />
-        <input
-          type="text"
-          placeholder="Descripción"
-          value={form.descripcion}
-          onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-        />
-        <button type="submit">{editingId ? "Guardar" : "Crear"}</button>
-        {editingId && (
-          <button type="button" onClick={cancelEdit}>
-            Cancelar
-          </button>
-        )}
-      </form>
+      {isAdmin ? (
+        <form onSubmit={handleSubmit} className="inline-form">
+          <input
+            type="text"
+            placeholder="Nombre"
+            value={form.nombre}
+            onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+            required
+          />
+          <input
+            type="text"
+            placeholder="Descripción"
+            value={form.descripcion}
+            onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+          />
+          <button type="submit">{editingId ? "Guardar" : "Crear"}</button>
+          {editingId && (
+            <button type="button" onClick={cancelEdit}>
+              Cancelar
+            </button>
+          )}
+        </form>
+      ) : (
+        <p>Solo los administradores pueden crear, editar o eliminar categorías.</p>
+      )}
 
       {formError && <p className="error">{formError}</p>}
       {loading && <p>Cargando...</p>}
@@ -113,14 +118,16 @@ export default function CategoriasPage() {
             <li key={categoria.id}>
               <strong>{categoria.nombre}</strong>
               {categoria.descripcion && <span> — {categoria.descripcion}</span>}
-              <div className="list-actions">
-                <button type="button" onClick={() => startEdit(categoria)}>
-                  Editar
-                </button>
-                <button type="button" onClick={() => handleDelete(categoria.id)}>
-                  Eliminar
-                </button>
-              </div>
+              {isAdmin && (
+                <div className="list-actions">
+                  <button type="button" onClick={() => startEdit(categoria)}>
+                    Editar
+                  </button>
+                  <button type="button" onClick={() => handleDelete(categoria.id)}>
+                    Eliminar
+                  </button>
+                </div>
+              )}
             </li>
           ))}
           {categorias.length === 0 && <p>No hay categorías todavía.</p>}
