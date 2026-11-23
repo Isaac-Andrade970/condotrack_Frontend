@@ -23,6 +23,13 @@ export function setOnUnauthorized(callback: () => void) {
   onUnauthorized = callback;
 }
 
+// Para clientes que reciben el 401 como respuesta normal (ver api/http.ts).
+export function notificarNoAutorizado() {
+  if (onUnauthorized) {
+    onUnauthorized();
+  }
+}
+
 api.interceptors.response.use(
   response => response,
   error => {
