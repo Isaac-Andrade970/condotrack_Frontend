@@ -67,3 +67,32 @@ npm test
 
 Cubren el reparto de errores 422, el servicio con respuestas simuladas (201, 422, 403, 404, 401, 500 y
 sin conexión) y la pantalla (validación local, 422 por campo, 403, confirmación, edición y reintento).
+
+## Listado, detalle y permisos por rol
+
+Pantallas: `ReportesListScreen` (listado, pull-to-refresh, marca «Tu reporte») y
+`ReporteDetailScreen` (detalle, editar, eliminar con confirmación y cambio de estado del
+administrador). Reciben el `service` por props, así que no dependen de la navegación.
+
+| Persona | Editar contenido | Eliminar | Cambiar estado |
+|---|---|---|---|
+| Autor del reporte (residente o administrador) | Sí | Sí | Sí, desde «Editar» |
+| Administrador, reporte ajeno | No | No | Sí (el PATCH lleva solo `estado`) |
+| Residente, reporte ajeno | No | No | No (solo lectura) |
+
+Ocultar opciones es solo experiencia de usuario: la API es quien autoriza y responde 403
+(el mensaje se muestra tal cual). La lógica está en `permisos.ts`.
+
+### Cómo conectarlas con la navegación
+
+```tsx
+import { http } from '../api/http';
+import { crearReportesService } from './reportesService';
+
+const service = crearReportesService(http);
+// En cada pantalla del navegador: activa={useIsFocused()} para recargar al volver.
+<ReportesListScreen service={service} usuario={user} activa={useIsFocused()} ... />
+```
+
+Tests nuevos: `permisos`, `reportesConsultas`, `ReportesListScreen` y `ReporteDetailScreen`
+(helpers compartidos en `test-utils/ayudas.ts`).
