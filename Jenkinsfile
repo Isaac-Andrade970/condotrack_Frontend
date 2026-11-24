@@ -106,6 +106,10 @@ pipeline {
             // `dist/` queda creado por root dentro del contenedor node; limpiarlo para el
             // proximo build.
             sh 'docker run --rm -v "$WORKSPACE:/w" alpine rm -rf /w/dist /w/node_modules >/dev/null 2>&1 || true'
+            // Lo que haya quedado de root en el workspace (el contenedor corre con -u root:root)
+            // impide que Jenkins lo borre en el checkout siguiente y el build falla (pasó con el
+            // build de production del 26 de oct). Se devuelve a uid 1000; `|| true` no falla el build.
+            sh 'docker run --rm -v "$WORKSPACE:/w" alpine chown -R 1000:1000 /w >/dev/null 2>&1 || true'
             sh 'docker image prune -f --filter "label=service=$APP_NAME" >/dev/null 2>&1 || true'
         }
     }
