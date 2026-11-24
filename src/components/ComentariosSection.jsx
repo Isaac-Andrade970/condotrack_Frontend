@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
+import { mensajeDeApi } from "../utils/errores";
 
 function ComentariosSection({ reporteId }) {
   const [comentarios, setComentarios] = useState([]);
@@ -9,6 +11,7 @@ function ComentariosSection({ reporteId }) {
   const [error, setError] = useState(null);
   const [editandoId, setEditandoId] = useState(null);
   const [textoEdicion, setTextoEdicion] = useState("");
+  const { user } = useAuth();
 
   const cargarComentarios = async () => {
     try {
@@ -39,7 +42,7 @@ function ComentariosSection({ reporteId }) {
       setNuevoComentario("");
       await cargarComentarios();
     } catch (err) {
-      setError("No se pudo guardar el comentario");
+      setError(mensajeDeApi(err, "No se pudo guardar el comentario"));
     } finally {
       setEnviando(false);
     }
@@ -66,7 +69,7 @@ function ComentariosSection({ reporteId }) {
       cancelarEdicion();
       await cargarComentarios();
     } catch (err) {
-      setError("No se pudo editar el comentario");
+      setError(mensajeDeApi(err, "No se pudo editar el comentario"));
     }
   };
 
@@ -78,7 +81,7 @@ function ComentariosSection({ reporteId }) {
       await api.delete(`/reportes/${reporteId}/comentarios/${comentarioId}`);
       await cargarComentarios();
     } catch (err) {
-      setError("No se pudo eliminar el comentario");
+      setError(mensajeDeApi(err, "No se pudo eliminar el comentario"));
     }
   };
 
@@ -117,14 +120,16 @@ function ComentariosSection({ reporteId }) {
                   {c.usuario_nombre || (c.usuario_id ? `Usuario #${c.usuario_id}` : "Anónimo")}:
                 </strong>{" "}
                 {c.contenido}
-                <div className="comentarios-acciones">
-                  <button type="button" onClick={() => iniciarEdicion(c)}>
-                    Editar
-                  </button>
-                  <button type="button" onClick={() => eliminarComentario(c.id)}>
-                    Eliminar
-                  </button>
-                </div>
+                {c.usuario_id === user?.id && (
+                  <div className="comentarios-acciones">
+                    <button type="button" onClick={() => iniciarEdicion(c)}>
+                      Editar
+                    </button>
+                    <button type="button" onClick={() => eliminarComentario(c.id)}>
+                      Eliminar
+                    </button>
+                  </div>
+                )}
               </li>
             )
           )}

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
+import { mensajeDeApi } from "../utils/errores";
 
 const emptyForm = { titulo: "", descripcion: "", torre_unidad: "", categoria_id: "" };
 const ESTADOS = ["pendiente", "en_progreso", "resuelto"];
@@ -10,6 +12,9 @@ export default function ReportesPage() {
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [estadoError, setEstadoError] = useState("");
+  const { user, isAdmin } = useAuth();
 
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
@@ -69,19 +74,32 @@ export default function ReportesPage() {
 
       cancelEdit();
     } catch (err) {
-      const apiErrors = err.response?.data?.errors;
-      setFormError(apiErrors ? apiErrors.join(", ") : "No se pudo guardar el reporte.");
+      setFormError(mensajeDeApi(err, "No se pudo guardar el reporte."));
+    }
+  }
+
+  // Un administrador solo puede cambiar el estado de un reporte ajeno: el PATCH
+  // lleva únicamente `estado` (si trajera titulo, descripcion, etc. la API da 403).
+  async function handleCambiarEstado(id, estado) {
+    setEstadoError("");
+
+    try {
+      const { data } = await api.patch(`/reportes/${id}`, { estado });
+      setReportes((prev) => prev.map((r) => (r.id === id ? data : r)));
+    } catch (err) {
+      setEstadoError(mensajeDeApi(err, "No se pudo cambiar el estado del reporte."));
     }
   }
 
   async function handleDelete(id) {
     if (!window.confirm("¿Eliminar este reporte?")) return;
 
+    setDeleteError("");
     try {
       await api.delete(`/reportes/${id}`);
       setReportes((prev) => prev.filter((r) => r.id !== id));
-    } catch {
-      setError("No se pudo eliminar el reporte.");
+    } catch (err) {
+      setDeleteError(mensajeDeApi(err, "No se pudo eliminar el reporte."));
     }
   }
 
@@ -152,6 +170,8 @@ export default function ReportesPage() {
       {formError && <p className="error">{formError}</p>}
       {loading && <p>Cargando...</p>}
       {error && <p className="error">{error}</p>}
+      {deleteError && <p className="error">{deleteError}</p>}
+      {estadoError && <p className="error">{estadoError}</p>}
 
       {!loading && !error && (
         <ul className="list">
@@ -167,14 +187,32 @@ export default function ReportesPage() {
                   {reporte.torre_unidad && ` · ${reporte.torre_unidad}`}
                 </div>
               </div>
-              <div className="list-actions">
-                <button type="button" onClick={() => startEdit(reporte)}>
-                  Editar
-                </button>
-                <button type="button" onClick={() => handleDelete(reporte.id)}>
-                  Eliminar
-                </button>
-              </div>
+              {reporte.usuario_id === user?.id ? (
+                <div className="list-actions">
+                  <button type="button" onClick={() => startEdit(reporte)}>
+                    Editar
+                  </button>
+                  <button type="button" onClick={() => handleDelete(reporte.id)}>
+                    Eliminar
+                  </button>
+                </div>
+              ) : (
+                isAdmin && (
+                  <div className="list-actions">
+                    <select
+                      aria-label="Cambiar estado del reporte"
+                      value={reporte.estado}
+                      onChange={(e) => handleCambiarEstado(reporte.id, e.target.value)}
+                    >
+                      {ESTADOS.map((estado) => (
+                        <option key={estado} value={estado}>
+                          {estado}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )
+              )}
             </li>
           ))}
           {reportes.length === 0 && <p>No hay reportes todavía.</p>}
