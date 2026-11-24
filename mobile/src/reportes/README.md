@@ -96,3 +96,23 @@ const service = crearReportesService(http);
 
 Tests nuevos: `permisos`, `reportesConsultas`, `ReportesListScreen` y `ReporteDetailScreen`
 (helpers compartidos en `test-utils/ayudas.ts`).
+
+## Flujo en la app (ya conectado)
+
+El navegador (`src/navigation/AppNavigator.tsx`) conecta estas pantallas con React Navigation y con
+la sesión (`src/navigation/pantallasReportes.tsx`). El servicio es `reportesService`, de `servicio.ts`.
+
+| Pantalla | Ruta | Desde dónde |
+|---|---|---|
+| Login | `Login` | Sin sesión |
+| Listado | `Reportes` | Con sesión (pantalla inicial). «Cerrar sesión» está en el encabezado |
+| Detalle | `ReporteDetalle` `{reporteId, reporte?}` | Al tocar un reporte del listado |
+| Crear | `ReporteForm` `{}` | «Nuevo reporte» del listado |
+| Editar | `ReporteForm` `{reporte}` | «Editar» del detalle (solo el autor) |
+
+- Al guardar un reporte (crear o editar) y aceptar la confirmación, se vuelve al listado (`popToTop`).
+- Al eliminar y aceptar la confirmación, también se vuelve al listado.
+- El listado y el detalle se recargan al volver a estar a la vista (`useIsFocused`), así lo creado, editado
+  o eliminado aparece sin cerrar la app.
+- Un administrador en un reporte ajeno ve solo el cambio de estado; un residente ajeno, solo lectura.
+
